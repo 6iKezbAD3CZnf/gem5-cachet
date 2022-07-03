@@ -334,3 +334,6 @@ website:
   maintainers:
     - Bobby Bruce <bbruce@ucdavis.edu>
     - Hoa Nguyen <hoanguyen@ucdavis.edu>
+
+cachet:
+  status: maintained

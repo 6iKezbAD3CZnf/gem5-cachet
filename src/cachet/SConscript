@@ -1,0 +1,7 @@
+Import('*')
+
+SimObject('SecCtrl.py', sim_objects = ['SecCtrl'])
+
+Source('sec_ctrl.cc')
+
+DebugFlag('SecCtrl')
