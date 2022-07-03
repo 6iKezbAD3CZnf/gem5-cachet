@@ -1,24 +1,22 @@
-#include "cachet/sec_ctrl.hh"
+#include "cachet/ct_read.hh"
 
 #include "base/trace.hh"
-#include "debug/SecCtrl.hh"
+#include "debug/CTRead.hh"
 
 namespace gem5
 {
 
-SecCtrl::SecCtrl(const SecCtrlParams &p) :
+CTRead::CTRead(const CTReadParams &p) :
     SimObject(p),
     cpuSidePort(name() + ".cpu_side_port", this),
-    memPort(name() + ".mem_port", this),
-    readPort(name() + ".read_port", this),
-    writePort(name() + ".write_port", this),
+    memSidePort(name() + ".mem_side_port", this),
     blocked(false)
 {
-    DPRINTF(SecCtrl, "Constructing\n");
+    DPRINTF(CTRead, "Constructing\n");
 }
 
 void
-SecCtrl::CPUSidePort::sendPacket(PacketPtr pkt)
+CTRead::CPUSidePort::sendPacket(PacketPtr pkt)
 {
     panic_if(blockedPacket != nullptr, "Should never try to send if blocked!");
 
@@ -28,35 +26,35 @@ SecCtrl::CPUSidePort::sendPacket(PacketPtr pkt)
 }
 
 void
-SecCtrl::CPUSidePort::trySendRetry()
+CTRead::CPUSidePort::trySendRetry()
 {
     if (needRetry && blockedPacket == nullptr) {
         needRetry = false;
-        DPRINTF(SecCtrl, "Sending retry req for %d\n", id);
+        DPRINTF(CTRead, "Sending retry req for %d\n", id);
         sendRetryReq();
     }
 }
 
 AddrRangeList
-SecCtrl::CPUSidePort::getAddrRanges() const
+CTRead::CPUSidePort::getAddrRanges() const
 {
     return ctrl->getAddrRanges();
 }
 
 Tick
-SecCtrl::CPUSidePort::recvAtomic(PacketPtr pkt)
+CTRead::CPUSidePort::recvAtomic(PacketPtr pkt)
 {
     return ctrl->handleAtomic(pkt);
 }
 
 void
-SecCtrl::CPUSidePort::recvFunctional(PacketPtr pkt)
+CTRead::CPUSidePort::recvFunctional(PacketPtr pkt)
 {
     ctrl->handleFunctional(pkt);
 }
 
 bool
-SecCtrl::CPUSidePort::recvTimingReq(PacketPtr pkt)
+CTRead::CPUSidePort::recvTimingReq(PacketPtr pkt)
 {
     if (!ctrl->handleRequest(pkt)) {
         needRetry = true;
@@ -67,7 +65,7 @@ SecCtrl::CPUSidePort::recvTimingReq(PacketPtr pkt)
 }
 
 void
-SecCtrl::CPUSidePort::recvRespRetry()
+CTRead::CPUSidePort::recvRespRetry()
 {
     assert(blockedPacket != nullptr);
 
@@ -78,7 +76,7 @@ SecCtrl::CPUSidePort::recvRespRetry()
 }
 
 void
-SecCtrl::MemSidePort::sendPacket(PacketPtr pkt)
+CTRead::MemSidePort::sendPacket(PacketPtr pkt)
 {
     panic_if(blockedPacket != nullptr, "Should never try to send if blocked!");
 
@@ -94,13 +92,13 @@ SecCtrl::MemSidePort::sendPacket(PacketPtr pkt)
 }
 
 bool
-SecCtrl::MemSidePort::recvTimingResp(PacketPtr pkt)
+CTRead::MemSidePort::recvTimingResp(PacketPtr pkt)
 {
     return ctrl->handleResponse(pkt);
 }
 
 void
-SecCtrl::MemSidePort::recvReqRetry()
+CTRead::MemSidePort::recvReqRetry()
 {
     assert(blockedPacket != nullptr);
 
@@ -111,32 +109,30 @@ SecCtrl::MemSidePort::recvReqRetry()
 }
 
 void
-SecCtrl::MemSidePort::recvRangeChange()
+CTRead::MemSidePort::recvRangeChange()
 {
-    if (name() == "system.sec_ctrl.mem_port") {
-        ctrl->handleRangeChange();
-    }
+    ctrl->handleRangeChange();
 }
 
 bool
-SecCtrl::handleRequest(PacketPtr pkt)
+CTRead::handleRequest(PacketPtr pkt)
 {
     if (blocked) {
         return false;
     }
 
-    DPRINTF(SecCtrl, "Got request for addr %#x\n", pkt->getAddr());
+    DPRINTF(CTRead, "Got request for addr %#x\n", pkt->getAddr());
 
     blocked = true;
-    memPort.sendPacket(pkt);
+    memSidePort.sendPacket(pkt);
     return true;
 }
 
 bool
-SecCtrl::handleResponse(PacketPtr pkt)
+CTRead::handleResponse(PacketPtr pkt)
 {
     assert(blocked);
-    DPRINTF(SecCtrl, "Got response for addr %#x\n", pkt->getAddr());
+    DPRINTF(CTRead, "Got response for addr %#x\n", pkt->getAddr());
 
     blocked = false;
     cpuSidePort.sendPacket(pkt);
@@ -145,43 +141,39 @@ SecCtrl::handleResponse(PacketPtr pkt)
 }
 
 Tick
-SecCtrl::handleAtomic(PacketPtr pkt)
+CTRead::handleAtomic(PacketPtr pkt)
 {
-    return memPort.sendAtomic(pkt);
+    return memSidePort.sendAtomic(pkt);
 }
 
 void
-SecCtrl::handleFunctional(PacketPtr pkt)
+CTRead::handleFunctional(PacketPtr pkt)
 {
-    return memPort.sendFunctional(pkt);
+    memSidePort.sendFunctional(pkt);
 }
 
 AddrRangeList
-SecCtrl::getAddrRanges() const
+CTRead::getAddrRanges() const
 {
-    DPRINTF(SecCtrl, "Sending new ranges\n");
-    return memPort.getAddrRanges();
+    DPRINTF(CTRead, "Sending new ranges\n");
+    return memSidePort.getAddrRanges();
 }
 
 void
-SecCtrl::handleRangeChange()
+CTRead::handleRangeChange()
 {
     cpuSidePort.sendRangeChange();
 }
 
 Port &
-SecCtrl::getPort(const std::string &if_name, PortID idx)
+CTRead::getPort(const std::string &if_name, PortID idx)
 {
     panic_if(idx != InvalidPortID, "This object doesn't support vector ports");
 
     if (if_name == "cpu_side_port") {
         return cpuSidePort;
-    } else if (if_name == "mem_port") {
-        return memPort;
-    } else if (if_name == "read_port") {
-        return readPort;
-    } else if (if_name == "write_port") {
-        return writePort;
+    } else if (if_name == "mem_side_port") {
+        return memSidePort;
     } else {
         return SimObject::getPort(if_name, idx);
     }

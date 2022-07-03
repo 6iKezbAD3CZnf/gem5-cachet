@@ -1,7 +1,10 @@
 Import('*')
 
 SimObject('SecCtrl.py', sim_objects = ['SecCtrl'])
+SimObject('CTRead.py', sim_objects = ['CTRead'])
 
 Source('sec_ctrl.cc')
+Source('ct_read.cc')
 
 DebugFlag('SecCtrl')
+DebugFlag('CTRead')

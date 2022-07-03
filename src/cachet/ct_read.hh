@@ -1,25 +1,25 @@
-#ifndef __CACHET_SEC_CTRL_HH__
-#define __CACHET_SEC_CTRL_HH__
+#ifndef __CACHET_CT_READ_HH__
+#define __CACHET_CT_READ_HH__
 
 #include "mem/port.hh"
-#include "params/SecCtrl.hh"
+#include "params/CTRead.hh"
 #include "sim/sim_object.hh"
 
 namespace gem5
 {
 
-class SecCtrl : public SimObject
+class CTRead : public SimObject
 {
   private:
     class CPUSidePort: public ResponsePort
     {
       private:
-        SecCtrl *ctrl;
+        CTRead *ctrl;
         bool needRetry;
         PacketPtr blockedPacket;
 
       public:
-        CPUSidePort(const std::string& name, SecCtrl* _ctrl):
+        CPUSidePort(const std::string& name, CTRead* _ctrl):
           ResponsePort(name, _ctrl),
           ctrl(_ctrl),
           needRetry(false),
@@ -40,11 +40,11 @@ class SecCtrl : public SimObject
     class MemSidePort: public RequestPort
     {
       private:
-        SecCtrl *ctrl;
+        CTRead *ctrl;
         PacketPtr blockedPacket;
 
       public:
-        MemSidePort(const std::string& name, SecCtrl* _ctrl):
+        MemSidePort(const std::string& name, CTRead* _ctrl):
           RequestPort(name, _ctrl),
           ctrl(_ctrl),
           blockedPacket(nullptr)
@@ -66,13 +66,11 @@ class SecCtrl : public SimObject
     void handleRangeChange();
 
     CPUSidePort cpuSidePort;
-    MemSidePort memPort;
-    MemSidePort readPort;
-    MemSidePort writePort;
+    MemSidePort memSidePort;
     bool blocked;
 
   public:
-    SecCtrl(const SecCtrlParams &p);
+    CTRead(const CTReadParams &p);
 
     Port& getPort(const std::string &if_name,
         PortID idx=InvalidPortID) override;
@@ -80,4 +78,4 @@ class SecCtrl : public SimObject
 
 } // namespace gem5
 
-#endif // __CACHET_SEC_CTRL_HH__
+#endif // __CACHET_CT_READ_HH__
