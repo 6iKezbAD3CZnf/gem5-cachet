@@ -1,24 +1,24 @@
-#ifndef __CACHET_CT_READ_HH__
-#define __CACHET_CT_READ_HH__
+#ifndef __CACHET_CT_WRITE_HH__
+#define __CACHET_CT_WRITE_HH__
 
 #include "cachet/common.hh"
-#include "params/CTRead.hh"
+#include "params/CTWrite.hh"
 
 namespace gem5
 {
 
-class CTRead : public SimObject
+class CTWrite : public SimObject
 {
   private:
     class CPUSidePort: public ResponsePort
     {
       private:
-        CTRead *ctrl;
+        CTWrite *ctrl;
         bool needRetry;
         PacketPtr blockedPkt;
 
       public:
-        CPUSidePort(const std::string& name, CTRead* _ctrl):
+        CPUSidePort(const std::string& name, CTWrite* _ctrl):
           ResponsePort(name, _ctrl),
           ctrl(_ctrl),
           needRetry(false),
@@ -39,11 +39,11 @@ class CTRead : public SimObject
     class MemSidePort: public RequestPort
     {
       private:
-        CTRead *ctrl;
+        CTWrite *ctrl;
         PacketPtr blockedPkt;
 
       public:
-        MemSidePort(const std::string& name, CTRead* _ctrl):
+        MemSidePort(const std::string& name, CTWrite* _ctrl):
           RequestPort(name, _ctrl),
           ctrl(_ctrl),
           blockedPkt(nullptr)
@@ -69,7 +69,7 @@ class CTRead : public SimObject
     PacketPtr requestPkt;
 
   public:
-    CTRead(const CTReadParams &p);
+    CTWrite(const CTWriteParams &p);
 
     Port& getPort(const std::string &if_name,
         PortID idx=InvalidPortID) override;
@@ -77,4 +77,4 @@ class CTRead : public SimObject
 
 } // namespace gem5
 
-#endif // __CACHET_CT_READ_HH__
+#endif // __CACHET_CT_WRITE_HH__

@@ -1,9 +1,8 @@
 #ifndef __CACHET_SEC_CTRL_HH__
 #define __CACHET_SEC_CTRL_HH__
 
-#include "mem/port.hh"
+#include "cachet/common.hh"
 #include "params/SecCtrl.hh"
-#include "sim/sim_object.hh"
 
 namespace gem5
 {
@@ -11,6 +10,13 @@ namespace gem5
 class SecCtrl : public SimObject
 {
   private:
+    enum State
+    {
+        Idle,
+        Read,
+        Write
+    };
+
     class CPUSidePort: public ResponsePort
     {
       private:
@@ -58,6 +64,8 @@ class SecCtrl : public SimObject
         void recvRangeChange() override;
     };
 
+    void finishProcess();
+
     bool handleRequest(PacketPtr pkt);
     bool handleResponse(PacketPtr pkt);
     Tick handleAtomic(PacketPtr pkt);
@@ -69,7 +77,13 @@ class SecCtrl : public SimObject
     MemSidePort memPort;
     MemSidePort readPort;
     MemSidePort writePort;
-    bool blocked;
+
+    State state;
+    PacketPtr requestPkt;
+    bool needsResponse;
+    PacketPtr responsePkt;
+    bool readFinished;
+    bool writeFinished;
 
   public:
     SecCtrl(const SecCtrlParams &p);

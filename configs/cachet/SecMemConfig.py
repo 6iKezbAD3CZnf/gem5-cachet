@@ -241,7 +241,7 @@ def config_mem(options, system):
             # the memory controllers and the membus
             subsystem.sec_ctrl = SecCtrl()
             subsystem.read_ctrl = CTRead()
-            subsystem.write_ctrl = CTRead()
+            subsystem.write_ctrl = CTWrite()
             subsystem.meta_cache = MetaCache()
             subsystem.meta_bus = SystemXBar()
             subsystem.mem_bus = SystemXBar()
