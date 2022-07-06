@@ -118,14 +118,14 @@ CTWrite::handleRequest(PacketPtr pkt)
     }
 
     panic_if(
-            pkt->getAddr() >= META_BORDER,
+            pkt->getAddr() >= AT_START,
             "Data pkt whose address is over 16GiB"
             );
     DPRINTF(CTWrite, "Got request for addr %#x\n", pkt->getAddr());
 
     requestPkt = pkt;
     PacketPtr metaPkt = createPkt(
-            META_BORDER,
+            AT_START,
             1,
             requestPkt->req->getFlags(),
             requestPkt->req->requestorId(),
@@ -151,7 +151,7 @@ Tick
 CTWrite::handleAtomic(PacketPtr pkt)
 {
     PacketPtr metaPkt = createPkt(
-            META_BORDER,
+            AT_START,
             1,
             pkt->req->getFlags(),
             pkt->req->requestorId(),
@@ -164,7 +164,7 @@ void
 CTWrite::handleFunctional(PacketPtr pkt)
 {
     PacketPtr metaPkt = createPkt(
-            META_BORDER,
+            AT_START,
             1,
             pkt->req->getFlags(),
             pkt->req->requestorId(),

@@ -187,7 +187,7 @@ SecCtrl::handleResponse(PacketPtr pkt)
             assert(false);
 
         case Read:
-            if (pkt->getAddr() >= META_BORDER) {
+            if (pkt->getAddr() >= AT_START) {
                 assert(pkt->isRead());
                 readFinished = true;
             } else {
@@ -207,7 +207,7 @@ SecCtrl::handleResponse(PacketPtr pkt)
             break;
 
         case Write:
-            if (pkt->getAddr() >= META_BORDER) {
+            if (pkt->getAddr() >= AT_START) {
                 if (pkt->isRead()) {
                     readFinished = true;
                     memPort.sendPacket(requestPkt);

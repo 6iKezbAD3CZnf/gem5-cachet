@@ -57,6 +57,9 @@ class CTRead : public SimObject
         void recvRangeChange() override;
     };
 
+    void processFinishOperation();
+    EventFunctionWrapper finishOperation;
+
     bool handleRequest(PacketPtr pkt);
     bool handleResponse(PacketPtr pkt);
     Tick handleAtomic(PacketPtr pkt);
@@ -66,7 +69,9 @@ class CTRead : public SimObject
 
     CPUSidePort cpuSidePort;
     MemSidePort memSidePort;
-    PacketPtr requestPkt;
+
+    bool blocked;
+    PacketPtr responcePkt;
 
   public:
     CTRead(const CTReadParams &p);

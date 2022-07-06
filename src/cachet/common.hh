@@ -1,7 +1,14 @@
 #ifndef __CACHET_COMMON_HH__
 #define __CACHET_COMMON_HH__
 
-#define META_BORDER 0x400000000
+#define AT_START 0x400000000
+#define MAC_START 0x400040000
+#define CNT_START 0x480040000
+#define MT_START 0x490040000
+#define RT_START 0x4924d2480
+
+#define HASH_CYCLE 40
+#define TICK_PER_CYCLE 1000
 
 #include "mem/port.hh"
 #include "mem/request.hh"

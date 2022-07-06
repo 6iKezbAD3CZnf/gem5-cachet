@@ -8,9 +8,11 @@ namespace gem5
 
 CTRead::CTRead(const CTReadParams &p) :
     SimObject(p),
+    finishOperation([this]{ processFinishOperation(); }, name()),
     cpuSidePort(name() + ".cpu_side_port", this),
     memSidePort(name() + ".mem_side_port", this),
-    requestPkt(nullptr)
+    blocked(false),
+    responcePkt(nullptr)
 {
     DPRINTF(CTRead, "Constructing\n");
 }
@@ -45,7 +47,7 @@ Tick
 CTRead::CPUSidePort::recvAtomic(PacketPtr pkt)
 {
     PacketPtr metaPkt = createPkt(
-            META_BORDER,
+            AT_START,
             1,
             pkt->req->getFlags(),
             pkt->req->requestorId(),
@@ -58,7 +60,7 @@ void
 CTRead::CPUSidePort::recvFunctional(PacketPtr pkt)
 {
     PacketPtr metaPkt = createPkt(
-            META_BORDER,
+            AT_START,
             1,
             pkt->req->getFlags(),
             pkt->req->requestorId(),
@@ -124,40 +126,109 @@ CTRead::MemSidePort::recvRangeChange()
     ctrl->handleRangeChange();
 }
 
+void
+CTRead::processFinishOperation() {
+    blocked = false;
+    cpuSidePort.sendPacket(responcePkt);
+    responcePkt = nullptr;
+    cpuSidePort.trySendRetry();
+    return;
+}
+
 bool
 CTRead::handleRequest(PacketPtr pkt)
 {
-    if (requestPkt) {
+    if (blocked) {
         return false;
     }
 
     panic_if(
-            pkt->getAddr() >= META_BORDER,
+            pkt->getAddr() >= AT_START,
             "Data pkt whose address is over 16GiB"
             );
-    DPRINTF(CTRead, "Got request for addr %#x\n", pkt->getAddr());
+    DPRINTF(CTRead, "Got request for %#x\n", pkt->print());
 
-    requestPkt = pkt;
-    PacketPtr metaPkt = createPkt(
-            META_BORDER,
-            1,
-            requestPkt->req->getFlags(),
-            requestPkt->req->requestorId(),
+    blocked = true;
+    Addr offset = pkt->getAddr() >> 8 << 5;
+    PacketPtr macPkt = createPkt(
+            MAC_START + offset,
+            8,
+            pkt->req->getFlags(),
+            pkt->req->requestorId(),
             true
             );
-    memSidePort.sendPacket(metaPkt);
+    memSidePort.sendPacket(macPkt);
     return true;
 }
 
 bool
 CTRead::handleResponse(PacketPtr pkt)
 {
-    assert(requestPkt);
-    DPRINTF(CTRead, "Got response for addr %#x\n", pkt->getAddr());
+    assert(blocked);
+    DPRINTF(CTRead, "Got response for %#x\n", pkt->print());
 
-    requestPkt = nullptr;
-    cpuSidePort.sendPacket(pkt);
-    cpuSidePort.trySendRetry();
+    if (pkt->req->getAccessDepth() == 0) {
+        // Cache Hit
+        responcePkt = pkt;
+        schedule(finishOperation, curTick() + HASH_CYCLE * TICK_PER_CYCLE);
+        return true;
+    } else {
+        if (pkt->getAddr() < CNT_START) {
+            Addr offset = (pkt->getAddr() - MAC_START) >> 11 << 8;
+            PacketPtr cntPkt = createPkt(
+                    CNT_START + offset,
+                    64,
+                    pkt->req->getFlags(),
+                    pkt->req->requestorId(),
+                    true
+                    );
+            memSidePort.sendPacket(cntPkt);
+        } else if (pkt->getAddr() < MT_START) {
+            Addr offset = (pkt->getAddr() - CNT_START) >> 11 << 8;
+            PacketPtr mtPkt = createPkt(
+                    MT_START + offset,
+                    64,
+                    pkt->req->getFlags(),
+                    pkt->req->requestorId(),
+                    true
+                    );
+            memSidePort.sendPacket(mtPkt);
+        } else {
+            Addr layer_start = MT_START;
+            Addr layer_size = 0x10000000 >> 3;
+            for (int i=0; i<10; i++) {
+                if (layer_start == RT_START) {
+                    // Root
+                    responcePkt = pkt;
+                    schedule(
+                            finishOperation,
+                            curTick() + HASH_CYCLE * TICK_PER_CYCLE
+                            );
+                    return true;
+                }
+
+                if (pkt->getAddr() < layer_start+layer_size) {
+                    // Layer 0 is the leaf of MT
+                    DPRINTF(CTRead, "send pkt in layer %d\n", i+1);
+                    Addr offset = (pkt->getAddr() - layer_start) >> 11 << 8;
+                    PacketPtr mtPkt = createPkt(
+                            layer_start + layer_size + offset,
+                            64,
+                            pkt->req->getFlags(),
+                            pkt->req->requestorId(),
+                            true
+                            );
+                    memSidePort.sendPacket(mtPkt);
+                    return true;
+                }
+                layer_start += layer_size;
+                layer_size >>= 3;
+            }
+
+            assert(false);
+        }
+    }
+
     return true;
 }
 
@@ -165,7 +236,7 @@ Tick
 CTRead::handleAtomic(PacketPtr pkt)
 {
     PacketPtr metaPkt = createPkt(
-            META_BORDER,
+            AT_START,
             1,
             pkt->req->getFlags(),
             pkt->req->requestorId(),
