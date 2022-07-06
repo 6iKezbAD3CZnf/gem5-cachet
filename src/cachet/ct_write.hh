@@ -1,6 +1,8 @@
 #ifndef __CACHET_CT_WRITE_HH__
 #define __CACHET_CT_WRITE_HH__
 
+#include <queue>
+
 #include "cachet/common.hh"
 #include "params/CTWrite.hh"
 
@@ -40,13 +42,15 @@ class CTWrite : public SimObject
     {
       private:
         CTWrite *ctrl;
-        PacketPtr blockedPkt;
+        bool waitingRetry;
+        std::queue<PacketPtr> packetQueue;
 
       public:
         MemSidePort(const std::string& name, CTWrite* _ctrl):
           RequestPort(name, _ctrl),
           ctrl(_ctrl),
-          blockedPkt(nullptr)
+          waitingRetry(false),
+          packetQueue()
         {}
 
         void sendPacket(PacketPtr ptr);
@@ -56,6 +60,9 @@ class CTWrite : public SimObject
         void recvReqRetry() override;
         void recvRangeChange() override;
     };
+
+    void processRequestOperation();
+    EventFunctionWrapper requestOperation;
 
     bool handleRequest(PacketPtr pkt);
     bool handleResponse(PacketPtr pkt);
@@ -67,6 +74,7 @@ class CTWrite : public SimObject
     CPUSidePort cpuSidePort;
     MemSidePort memSidePort;
     PacketPtr requestPkt;
+    int responseTimes;
 
   public:
     CTWrite(const CTWriteParams &p);

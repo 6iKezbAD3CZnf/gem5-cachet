@@ -8,9 +8,11 @@ namespace gem5
 
 CTWrite::CTWrite(const CTWriteParams &p) :
     SimObject(p),
+    requestOperation([this]{ processRequestOperation(); }, name()),
     cpuSidePort(name() + ".cpu_side_port", this),
     memSidePort(name() + ".mem_side_port", this),
-    requestPkt(nullptr)
+    requestPkt(nullptr),
+    responseTimes(0)
 {
     DPRINTF(CTWrite, "Constructing\n");
 }
@@ -78,12 +80,21 @@ CTWrite::CPUSidePort::recvRespRetry()
 void
 CTWrite::MemSidePort::sendPacket(PacketPtr pkt)
 {
-    panic_if(blockedPkt != nullptr, "Should never try to send if blocked!");
+    if (waitingRetry) {
+        packetQueue.push(pkt);
+        return;
+    }
 
-    assert(pkt->needsResponse());
-
-    if (!sendTimingReq(pkt)) {
-        blockedPkt = pkt;
+    if (sendTimingReq(pkt)) {
+        if (!packetQueue.empty()) {
+            PacketPtr nextPkt = packetQueue.front();
+            packetQueue.pop();
+            sendPacket(nextPkt);
+        }
+    } else {
+        DPRINTF(CTWrite, "rejected\n");
+        waitingRetry = true;
+        packetQueue.push(pkt);
     }
 }
 
@@ -96,11 +107,12 @@ CTWrite::MemSidePort::recvTimingResp(PacketPtr pkt)
 void
 CTWrite::MemSidePort::recvReqRetry()
 {
-    assert(blockedPkt != nullptr);
+    assert(!packetQueue.empty());
 
-    PacketPtr pkt = blockedPkt;
-    blockedPkt = nullptr;
+    PacketPtr pkt = packetQueue.front();
+    packetQueue.pop();
 
+    waitingRetry = false;
     sendPacket(pkt);
 }
 
@@ -108,6 +120,57 @@ void
 CTWrite::MemSidePort::recvRangeChange()
 {
     ctrl->handleRangeChange();
+}
+
+void
+CTWrite::processRequestOperation()
+{
+    Addr offset = requestPkt->getAddr() >> 8 << 5;
+    PacketPtr macPkt = createPkt(
+            MAC_START + offset,
+            8,
+            requestPkt->req->getFlags(),
+            requestPkt->req->requestorId(),
+            false
+            );
+    memSidePort.sendPacket(macPkt);
+
+    offset = (macPkt->getAddr() - MAC_START) >> 11 << 8;
+    PacketPtr cntPkt = createPkt(
+            CNT_START + offset,
+            64,
+            macPkt->req->getFlags(),
+            macPkt->req->requestorId(),
+            false
+            );
+    memSidePort.sendPacket(cntPkt);
+
+    offset = (cntPkt->getAddr() - CNT_START) >> 11 << 8;
+    PacketPtr mtPkt = createPkt(
+            MT_START + offset,
+            64,
+            cntPkt->req->getFlags(),
+            cntPkt->req->requestorId(),
+            false
+            );
+    memSidePort.sendPacket(mtPkt);
+
+    PacketPtr pkt = mtPkt;
+    Addr layer_start = MT_START;
+    Addr layer_size = 0x10000000 >> 3;
+    for (int i=0; i<7; i++) {
+        offset = (pkt->getAddr() - layer_start) >> 11 << 8;
+        pkt = createPkt(
+                layer_start + layer_size + offset,
+                64,
+                pkt->req->getFlags(),
+                pkt->req->requestorId(),
+                false
+                );
+        memSidePort.sendPacket(pkt);
+        layer_start += layer_size;
+        layer_size >>= 3;
+    }
 }
 
 bool
@@ -124,14 +187,10 @@ CTWrite::handleRequest(PacketPtr pkt)
     DPRINTF(CTWrite, "Got request for addr %#x\n", pkt->getAddr());
 
     requestPkt = pkt;
-    PacketPtr metaPkt = createPkt(
-            AT_START,
-            1,
-            requestPkt->req->getFlags(),
-            requestPkt->req->requestorId(),
-            false
+    schedule(
+            requestOperation,
+            curTick() + HASH_CYCLE * TICK_PER_CYCLE
             );
-    memSidePort.sendPacket(metaPkt);
     return true;
 }
 
@@ -139,11 +198,16 @@ bool
 CTWrite::handleResponse(PacketPtr pkt)
 {
     assert(requestPkt);
-    DPRINTF(CTWrite, "Got response for addr %#x\n", pkt->getAddr());
+    DPRINTF(CTWrite, "Got response for %#x\n", pkt->print());
 
-    requestPkt = nullptr;
-    cpuSidePort.sendPacket(pkt);
-    cpuSidePort.trySendRetry();
+    responseTimes++;
+    if (responseTimes >= 10) {
+        requestPkt = nullptr;
+        responseTimes = 0;
+        cpuSidePort.sendPacket(pkt);
+        cpuSidePort.trySendRetry();
+    }
+
     return true;
 }
 
