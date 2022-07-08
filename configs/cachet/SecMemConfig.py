@@ -259,7 +259,7 @@ def config_mem(options, system):
                     subsystem.meta_cache.cpu_side
             subsystem.mem_bus.cpu_side_ports = [
                     subsystem.meta_cache.mem_side,
-                    subsystem.sec_ctrl.mem_port
+                    subsystem.sec_ctrl.mem_side_port
                     ]
             mem_ctrls[i].port = subsystem.mem_bus.mem_side_ports
 

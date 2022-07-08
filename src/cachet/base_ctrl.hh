@@ -28,14 +28,14 @@ class BaseCtrl : public SimObject
       private:
         BaseCtrl *ctrl;
         bool needRetry;
-        PacketPtr blockedPkt;
+        PacketPtr blockedPacket;
 
       public:
         CPUSidePort(const std::string& name, BaseCtrl* _ctrl):
           ResponsePort(name, _ctrl),
           ctrl(_ctrl),
           needRetry(false),
-          blockedPkt(nullptr)
+          blockedPacket(nullptr)
         {}
 
         void sendPacket(PacketPtr pkt);
@@ -79,7 +79,6 @@ class BaseCtrl : public SimObject
             uint16_t requestorid,
             bool isRead
             );
-
     virtual void processFinishOperation();
     EventFunctionWrapper finishOperation;
 
@@ -93,11 +92,7 @@ class BaseCtrl : public SimObject
     CPUSidePort cpuSidePort;
     MemSidePort memSidePort;
 
-    PacketPtr requestPkt;
-    PacketPtr responsePkt;
-
     BaseCtrl(const BaseCtrlParams &p);
-
     virtual Port& getPort(const std::string &if_name,
         PortID idx=InvalidPortID) override;
 };

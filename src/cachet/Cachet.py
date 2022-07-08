@@ -7,15 +7,13 @@ class BaseCtrl(SimObject):
     cxx_class = 'gem5::BaseCtrl'
 
     cpu_side_port = ResponsePort("CPU side port")
-    mem_side_port = RequestPort("Memory side port")
+    mem_side_port = RequestPort("Mem side port")
 
-class SecCtrl(SimObject):
+class SecCtrl(BaseCtrl):
     type = 'SecCtrl'
     cxx_header = "cachet/sec_ctrl.hh"
     cxx_class = 'gem5::SecCtrl'
 
-    cpu_side_port = ResponsePort("CPU side port")
-    mem_port = RequestPort("Mem port")
     read_port = RequestPort("Read port")
     write_port = RequestPort("Write port")
 

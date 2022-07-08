@@ -10,9 +10,7 @@ BaseCtrl::BaseCtrl(const BaseCtrlParams &p) :
     SimObject(p),
     finishOperation([this]{ processFinishOperation(); }, name()),
     cpuSidePort(name() + ".cpu_side_port", this),
-    memSidePort(name() + ".mem_side_port", this),
-    requestPkt(nullptr),
-    responsePkt(nullptr)
+    memSidePort(name() + ".mem_side_port", this)
 {
     DPRINTF(BaseCtrl, "Constructing\n");
 }
@@ -20,17 +18,17 @@ BaseCtrl::BaseCtrl(const BaseCtrlParams &p) :
 void
 BaseCtrl::CPUSidePort::sendPacket(PacketPtr pkt)
 {
-    panic_if(blockedPkt != nullptr, "Should never try to send if blocked!");
+    panic_if(blockedPacket != nullptr, "Should never try to send if blocked!");
 
     if (!sendTimingResp(pkt)) {
-        blockedPkt = pkt;
+        blockedPacket = pkt;
     }
 }
 
 void
 BaseCtrl::CPUSidePort::trySendRetry()
 {
-    if (needRetry && blockedPkt == nullptr) {
+    if (needRetry && blockedPacket == nullptr) {
         needRetry = false;
         DPRINTF(BaseCtrl, "Sending retry req for %d\n", id);
         sendRetryReq();
@@ -46,27 +44,13 @@ BaseCtrl::CPUSidePort::getAddrRanges() const
 Tick
 BaseCtrl::CPUSidePort::recvAtomic(PacketPtr pkt)
 {
-    PacketPtr metaPkt = ctrl->createPkt(
-            AT_START,
-            1,
-            pkt->req->getFlags(),
-            pkt->req->requestorId(),
-            true
-            );
-    return ctrl->handleAtomic(metaPkt);
+    return ctrl->handleAtomic(pkt);
 }
 
 void
 BaseCtrl::CPUSidePort::recvFunctional(PacketPtr pkt)
 {
-    PacketPtr metaPkt = ctrl->createPkt(
-            AT_START,
-            1,
-            pkt->req->getFlags(),
-            pkt->req->requestorId(),
-            true
-            );
-    ctrl->handleFunctional(metaPkt);
+    ctrl->handleFunctional(pkt);
 }
 
 bool
@@ -83,10 +67,10 @@ BaseCtrl::CPUSidePort::recvTimingReq(PacketPtr pkt)
 void
 BaseCtrl::CPUSidePort::recvRespRetry()
 {
-    assert(blockedPkt != nullptr);
+    assert(blockedPacket != nullptr);
 
-    PacketPtr pkt = blockedPkt;
-    blockedPkt= nullptr;
+    PacketPtr pkt = blockedPacket;
+    blockedPacket= nullptr;
 
     sendPacket(pkt);
 }
@@ -155,24 +139,18 @@ BaseCtrl::createPkt(
 }
 
 void
-BaseCtrl::processFinishOperation() {
-    requestPkt = nullptr;
-    cpuSidePort.sendPacket(responsePkt);
-    responsePkt = nullptr;
+BaseCtrl::processFinishOperation()
+{
+    DPRINTF(BaseCtrl, "finish process\n");
+
     cpuSidePort.trySendRetry();
-    return;
 }
 
 bool
 BaseCtrl::handleRequest(PacketPtr pkt)
 {
-    if (requestPkt) {
-        return false;
-    }
-
     DPRINTF(BaseCtrl, "Got request for %#x\n", pkt->print());
 
-    requestPkt = pkt;
     memSidePort.sendPacket(pkt);
     return true;
 }
@@ -180,12 +158,10 @@ BaseCtrl::handleRequest(PacketPtr pkt)
 bool
 BaseCtrl::handleResponse(PacketPtr pkt)
 {
-    assert(requestPkt);
     DPRINTF(BaseCtrl, "Got response for %#x\n", pkt->print());
 
-    responsePkt = pkt;
+    cpuSidePort.sendPacket(pkt);
     schedule(finishOperation, curTick());
-
     return true;
 }
 

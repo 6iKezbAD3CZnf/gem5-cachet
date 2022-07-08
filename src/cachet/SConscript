@@ -2,7 +2,7 @@ Import('*')
 
 SimObject(
     'Cachet.py',
-    sim_objects = ['BaseCtrl', 'SecCtrl', 'CTRead', 'CTWrite', 'MTWrite']
+    sim_objects = ['BaseCtrl','SecCtrl', 'CTRead', 'CTWrite', 'MTWrite']
     )
 
 Source('base_ctrl.cc')
