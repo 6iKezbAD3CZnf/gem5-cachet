@@ -1,16 +1,18 @@
 Import('*')
 
 SimObject(
-    'SecCtrl.py',
-    sim_objects = ['SecCtrl', 'CTRead', 'CTWrite', 'MTWrite']
+    'Cachet.py',
+    sim_objects = ['BaseCtrl', 'SecCtrl', 'CTRead', 'CTWrite', 'MTWrite']
     )
 
+Source('base_ctrl.cc')
 Source('sec_ctrl.cc')
 Source('ct_read.cc')
 Source('ct_write.cc')
 Source('mt_write.cc')
 Source('common.cc')
 
+DebugFlag('BaseCtrl')
 DebugFlag('SecCtrl')
 DebugFlag('CTRead')
 DebugFlag('CTWrite')

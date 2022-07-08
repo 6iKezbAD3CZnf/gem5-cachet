@@ -1,6 +1,14 @@
 from m5.params import *
 from m5.SimObject import SimObject
 
+class BaseCtrl(SimObject):
+    type = 'BaseCtrl'
+    cxx_header = "cachet/base_ctrl.hh"
+    cxx_class = 'gem5::BaseCtrl'
+
+    cpu_side_port = ResponsePort("CPU side port")
+    mem_side_port = RequestPort("Memory side port")
+
 class SecCtrl(SimObject):
     type = 'SecCtrl'
     cxx_header = "cachet/sec_ctrl.hh"
