@@ -86,8 +86,8 @@ class BaseCtrl : public SimObject
     virtual bool handleResponse(PacketPtr pkt);
     virtual Tick handleAtomic(PacketPtr pkt);
     virtual void handleFunctional(PacketPtr pkt);
-    virtual AddrRangeList getAddrRanges() const;
-    virtual void handleRangeChange();
+    AddrRangeList getAddrRanges() const;
+    void handleRangeChange();
 
     CPUSidePort cpuSidePort;
     MemSidePort memSidePort;

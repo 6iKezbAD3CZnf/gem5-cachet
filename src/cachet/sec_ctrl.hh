@@ -23,8 +23,6 @@ class SecCtrl : public BaseCtrl
     bool handleResponse(PacketPtr pkt) override;
     Tick handleAtomic(PacketPtr pkt) override;
     void handleFunctional(PacketPtr pkt) override;
-    AddrRangeList getAddrRanges() const override;
-    void handleRangeChange() override;
 
     MemSidePort readPort;
     MemSidePort writePort;

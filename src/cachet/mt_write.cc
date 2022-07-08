@@ -7,121 +7,13 @@ namespace gem5
 {
 
 MTWrite::MTWrite(const MTWriteParams &p) :
-    SimObject(p),
+    BaseCtrl(p),
     requestOperation([this]{ processRequestOperation(); }, name()),
     nextMTOperation([this]{ processNextMTOperation(); }, name()),
-    finishOperation([this]{ processFinishOperation(); }, name()),
-    cpuSidePort(name() + ".cpu_side_port", this),
-    memSidePort(name() + ".mem_side_port", this),
     requestPkt(nullptr),
     responsePkt(nullptr)
 {
     DPRINTF(MTWrite, "Constructing\n");
-}
-
-void
-MTWrite::CPUSidePort::sendPacket(PacketPtr pkt)
-{
-    panic_if(blockedPkt != nullptr, "Should never try to send if blocked!");
-
-    if (!sendTimingResp(pkt)) {
-        blockedPkt = pkt;
-    }
-}
-
-void
-MTWrite::CPUSidePort::trySendRetry()
-{
-    if (needRetry && blockedPkt == nullptr) {
-        needRetry = false;
-        DPRINTF(MTWrite, "Sending retry req for %d\n", id);
-        sendRetryReq();
-    }
-}
-
-AddrRangeList
-MTWrite::CPUSidePort::getAddrRanges() const
-{
-    return ctrl->getAddrRanges();
-}
-
-Tick
-MTWrite::CPUSidePort::recvAtomic(PacketPtr pkt)
-{
-    return ctrl->handleAtomic(pkt);
-}
-
-void
-MTWrite::CPUSidePort::recvFunctional(PacketPtr pkt)
-{
-    ctrl->handleFunctional(pkt);
-}
-
-bool
-MTWrite::CPUSidePort::recvTimingReq(PacketPtr pkt)
-{
-    if (!ctrl->handleRequest(pkt)) {
-        needRetry = true;
-        return false;
-    } else {
-        return true;
-    }
-}
-
-void
-MTWrite::CPUSidePort::recvRespRetry()
-{
-    assert(blockedPkt != nullptr);
-
-    PacketPtr pkt = blockedPkt;
-    blockedPkt= nullptr;
-
-    sendPacket(pkt);
-}
-
-void
-MTWrite::MemSidePort::sendPacket(PacketPtr pkt)
-{
-    if (waitingRetry) {
-        packetQueue.push(pkt);
-        return;
-    }
-
-    if (sendTimingReq(pkt)) {
-        if (!packetQueue.empty()) {
-            PacketPtr nextPkt = packetQueue.front();
-            packetQueue.pop();
-            sendPacket(nextPkt);
-        }
-    } else {
-        DPRINTF(MTWrite, "rejected\n");
-        waitingRetry = true;
-        packetQueue.push(pkt);
-    }
-}
-
-bool
-MTWrite::MemSidePort::recvTimingResp(PacketPtr pkt)
-{
-    return ctrl->handleResponse(pkt);
-}
-
-void
-MTWrite::MemSidePort::recvReqRetry()
-{
-    assert(!packetQueue.empty());
-
-    PacketPtr pkt = packetQueue.front();
-    packetQueue.pop();
-
-    waitingRetry = false;
-    sendPacket(pkt);
-}
-
-void
-MTWrite::MemSidePort::recvRangeChange()
-{
-    ctrl->handleRangeChange();
 }
 
 void
@@ -271,33 +163,6 @@ MTWrite::handleFunctional(PacketPtr pkt)
             false
             );
     memSidePort.sendFunctional(metaPkt);
-}
-
-AddrRangeList
-MTWrite::getAddrRanges() const
-{
-    DPRINTF(MTWrite, "Sending new ranges\n");
-    return memSidePort.getAddrRanges();
-}
-
-void
-MTWrite::handleRangeChange()
-{
-    cpuSidePort.sendRangeChange();
-}
-
-Port &
-MTWrite::getPort(const std::string &if_name, PortID idx)
-{
-    panic_if(idx != InvalidPortID, "This object doesn't support vector ports");
-
-    if (if_name == "cpu_side_port") {
-        return cpuSidePort;
-    } else if (if_name == "mem_side_port") {
-        return memSidePort;
-    } else {
-        return SimObject::getPort(if_name, idx);
-    }
 }
 
 } // namespace gem5

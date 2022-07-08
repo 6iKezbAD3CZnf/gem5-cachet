@@ -196,19 +196,6 @@ SecCtrl::handleFunctional(PacketPtr pkt)
     memSidePort.sendFunctional(pkt);
 }
 
-AddrRangeList
-SecCtrl::getAddrRanges() const
-{
-    DPRINTF(SecCtrl, "Sending new ranges\n");
-    return memSidePort.getAddrRanges();
-}
-
-void
-SecCtrl::handleRangeChange()
-{
-    cpuSidePort.sendRangeChange();
-}
-
 Port &
 SecCtrl::getPort(const std::string &if_name, PortID idx)
 {

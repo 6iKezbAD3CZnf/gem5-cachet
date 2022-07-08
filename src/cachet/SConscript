@@ -10,7 +10,6 @@ Source('sec_ctrl.cc')
 Source('ct_read.cc')
 Source('ct_write.cc')
 Source('mt_write.cc')
-Source('common.cc')
 
 DebugFlag('BaseCtrl')
 DebugFlag('SecCtrl')
