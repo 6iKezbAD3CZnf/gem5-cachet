@@ -9,15 +9,15 @@ namespace gem5
 
 class MTWrite : public BaseCtrl
 {
-  private:
+  public:
     void processRequestOperation();
     EventFunctionWrapper requestOperation;
-    void processNextMTOperation();
+    virtual void processNextMTOperation();
     EventFunctionWrapper nextMTOperation;
 
     void processFinishOperation() override;
     bool handleRequest(PacketPtr pkt) override;
-    bool handleResponse(PacketPtr pkt) override;
+    virtual bool handleResponse(PacketPtr pkt) override;
     Tick handleAtomic(PacketPtr pkt) override;
     void handleFunctional(PacketPtr pkt) override;
 
@@ -26,7 +26,6 @@ class MTWrite : public BaseCtrl
     PacketPtr requestPkt;
     PacketPtr responsePkt;
 
-  public:
     MTWrite(const MTWriteParams &p);
     Port& getPort(const std::string &if_name,
         PortID idx=InvalidPortID) override;

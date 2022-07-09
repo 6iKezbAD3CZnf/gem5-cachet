@@ -237,6 +237,6 @@ def config_mem(options, system):
             # for each vault. All vaults are same size.
             mem_ctrls[i].dram.device_size = options.hmc_dev_vault_size
         else:
-            MTConfig(i, subsystem, xbar, mem_ctrls)
+            CacheTreeConfig(i, subsystem, xbar, mem_ctrls)
 
     subsystem.mem_ctrls = mem_ctrls

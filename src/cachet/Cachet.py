@@ -33,3 +33,8 @@ class MTWrite(BaseCtrl):
     cxx_class = 'gem5::MTWrite'
 
     mem_bypass_port = RequestPort("Memory bypass port")
+
+class CacheTree(MTWrite):
+    type = 'CacheTree'
+    cxx_header = "cachet/cache_tree.hh"
+    cxx_class = 'gem5::CacheTree'
