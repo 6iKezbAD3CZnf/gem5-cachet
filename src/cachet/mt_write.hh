@@ -21,11 +21,15 @@ class MTWrite : public BaseCtrl
     Tick handleAtomic(PacketPtr pkt) override;
     void handleFunctional(PacketPtr pkt) override;
 
+    MemSidePort memBypassPort;
+
     PacketPtr requestPkt;
     PacketPtr responsePkt;
 
   public:
     MTWrite(const MTWriteParams &p);
+    Port& getPort(const std::string &if_name,
+        PortID idx=InvalidPortID) override;
 };
 
 } // namespace gem5

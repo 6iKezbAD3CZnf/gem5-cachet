@@ -7,7 +7,7 @@ class BaseCtrl(SimObject):
     cxx_class = 'gem5::BaseCtrl'
 
     cpu_side_port = ResponsePort("CPU side port")
-    mem_side_port = RequestPort("Mem side port")
+    mem_side_port = RequestPort("Memory side port")
 
 class SecCtrl(BaseCtrl):
     type = 'SecCtrl'
@@ -31,3 +31,5 @@ class MTWrite(BaseCtrl):
     type = 'MTWrite'
     cxx_header = "cachet/mt_write.hh"
     cxx_class = 'gem5::MTWrite'
+
+    mem_bypass_port = RequestPort("Memory bypass port")

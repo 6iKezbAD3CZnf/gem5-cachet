@@ -2,7 +2,7 @@ import m5.objects
 from m5.objects import *
 from common import ObjectList
 from common import HMC
-from MetaCache import MetaCache
+from Scheme import *
 
 def create_mem_intf(intf, r, i, nbr_mem_ctrls, intlv_bits, intlv_size,
                     xor_low_bit):
@@ -237,30 +237,6 @@ def config_mem(options, system):
             # for each vault. All vaults are same size.
             mem_ctrls[i].dram.device_size = options.hmc_dev_vault_size
         else:
-            # Insert the security controlloers between
-            # the memory controllers and the membus
-            subsystem.sec_ctrl = SecCtrl()
-            subsystem.read_ctrl = CTRead()
-            subsystem.write_ctrl = CTWrite()
-            subsystem.meta_cache = MetaCache()
-            subsystem.meta_bus = SystemXBar()
-            subsystem.mem_bus = SystemXBar()
-
-            xbar.mem_side_ports = subsystem.sec_ctrl.cpu_side_port
-            subsystem.sec_ctrl.read_port = \
-                    subsystem.read_ctrl.cpu_side_port
-            subsystem.sec_ctrl.write_port = \
-                    subsystem.write_ctrl.cpu_side_port
-            subsystem.meta_bus.cpu_side_ports = [
-                    subsystem.write_ctrl.mem_side_port,
-                    subsystem.read_ctrl.mem_side_port
-                    ]
-            subsystem.meta_bus.mem_side_ports = \
-                    subsystem.meta_cache.cpu_side
-            subsystem.mem_bus.cpu_side_ports = [
-                    subsystem.meta_cache.mem_side,
-                    subsystem.sec_ctrl.mem_side_port
-                    ]
-            mem_ctrls[i].port = subsystem.mem_bus.mem_side_ports
+            MTConfig(i, subsystem, xbar, mem_ctrls)
 
     subsystem.mem_ctrls = mem_ctrls

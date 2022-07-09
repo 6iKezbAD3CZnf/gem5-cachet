@@ -10,6 +10,7 @@ MTWrite::MTWrite(const MTWriteParams &p) :
     BaseCtrl(p),
     requestOperation([this]{ processRequestOperation(); }, name()),
     nextMTOperation([this]{ processNextMTOperation(); }, name()),
+    memBypassPort(name() + ".mem_bypass_port", this),
     requestPkt(nullptr),
     responsePkt(nullptr)
 {
@@ -27,7 +28,7 @@ MTWrite::processRequestOperation()
             requestPkt->req->requestorId(),
             false
             );
-    memSidePort.sendPacket(macPkt);
+    memBypassPort.sendPacket(macPkt);
 
     offset = (macPkt->getAddr() - MAC_START) >> 11 << 8;
     PacketPtr cntPkt = createPkt(
@@ -37,7 +38,7 @@ MTWrite::processRequestOperation()
             macPkt->req->requestorId(),
             false
             );
-    memSidePort.sendPacket(cntPkt);
+    memBypassPort.sendPacket(cntPkt);
 }
 
 void
@@ -48,7 +49,7 @@ MTWrite::processNextMTOperation()
         assert(false);
     } else if (pkt->getAddr() >= CNT_START &&
             pkt->getAddr() < MT_START) {
-        Addr offset = (responsePkt->getAddr() - CNT_START) >> 11 << 8;
+        Addr offset = (pkt->getAddr() - CNT_START) >> 11 << 8;
         PacketPtr mtPkt = createPkt(
                 MT_START + offset,
                 64,
@@ -142,27 +143,136 @@ MTWrite::handleResponse(PacketPtr pkt)
 Tick
 MTWrite::handleAtomic(PacketPtr pkt)
 {
-    PacketPtr metaPkt = createPkt(
-            AT_START,
-            1,
+    Tick ret = 0;
+
+    Addr offset = pkt->getAddr() >> 8 << 5;
+    PacketPtr macPkt = createPkt(
+            MAC_START + offset,
+            8,
             pkt->req->getFlags(),
             pkt->req->requestorId(),
             false
             );
-    return memSidePort.sendAtomic(metaPkt);
+    ret += memBypassPort.sendAtomic(macPkt);
+
+    offset = (macPkt->getAddr() - MAC_START) >> 11 << 8;
+    PacketPtr cntPkt = createPkt(
+            CNT_START + offset,
+            64,
+            macPkt->req->getFlags(),
+            macPkt->req->requestorId(),
+            false
+            );
+    ret += memBypassPort.sendAtomic(cntPkt);
+
+    pkt = cntPkt;
+    offset = (pkt->getAddr() - CNT_START) >> 11 << 8;
+    pkt = createPkt(
+            MT_START + offset,
+            64,
+            pkt->req->getFlags(),
+            pkt->req->requestorId(),
+            false
+            );
+    ret += memSidePort.sendAtomic(pkt);
+
+    Addr layer_start = MT_START;
+    Addr layer_size = 0x10000000 >> 3;
+    for (int i=0; i<10; i++) {
+        if (layer_start == RT_START) {
+            // Root
+            ret += HASH_CYCLE * TICK_PER_CYCLE;
+            break;
+        }
+
+        if (pkt->getAddr() < layer_start+layer_size) {
+            offset = (pkt->getAddr() - layer_start) >> 11 << 8;
+            pkt = createPkt(
+                    layer_start + layer_size + offset,
+                    64,
+                    pkt->req->getFlags(),
+                    pkt->req->requestorId(),
+                    false
+                    );
+            ret += memSidePort.sendAtomic(pkt);
+        }
+        layer_start += layer_size;
+        layer_size >>= 3;
+    }
+
+    return ret;
 }
 
 void
 MTWrite::handleFunctional(PacketPtr pkt)
 {
-    PacketPtr metaPkt = createPkt(
-            AT_START,
-            1,
+    Addr offset = pkt->getAddr() >> 8 << 5;
+    PacketPtr macPkt = createPkt(
+            MAC_START + offset,
+            8,
             pkt->req->getFlags(),
             pkt->req->requestorId(),
             false
             );
-    memSidePort.sendFunctional(metaPkt);
+    memBypassPort.sendFunctional(macPkt);
+
+    offset = (macPkt->getAddr() - MAC_START) >> 11 << 8;
+    PacketPtr cntPkt = createPkt(
+            CNT_START + offset,
+            64,
+            macPkt->req->getFlags(),
+            macPkt->req->requestorId(),
+            false
+            );
+    memBypassPort.sendFunctional(cntPkt);
+
+    pkt = cntPkt;
+    offset = (pkt->getAddr() - CNT_START) >> 11 << 8;
+    pkt = createPkt(
+            MT_START + offset,
+            64,
+            pkt->req->getFlags(),
+            pkt->req->requestorId(),
+            false
+            );
+    memSidePort.sendFunctional(pkt);
+
+    Addr layer_start = MT_START;
+    Addr layer_size = 0x10000000 >> 3;
+    for (int i=0; i<10; i++) {
+        if (layer_start == RT_START) {
+            // Root
+            break;
+        }
+
+        if (pkt->getAddr() < layer_start+layer_size) {
+            offset = (pkt->getAddr() - layer_start) >> 11 << 8;
+            pkt = createPkt(
+                    layer_start + layer_size + offset,
+                    64,
+                    pkt->req->getFlags(),
+                    pkt->req->requestorId(),
+                    false
+                    );
+            memSidePort.sendFunctional(pkt);
+        }
+        layer_start += layer_size;
+        layer_size >>= 3;
+    }
+
+    return;
+}
+
+Port &
+MTWrite::getPort(const std::string &if_name, PortID idx)
+{
+    panic_if(idx != InvalidPortID, "This object doesn't support vector ports");
+
+    if (if_name == "mem_bypass_port") {
+        return memBypassPort;
+    } else {
+        return BaseCtrl::getPort(if_name, idx);
+    }
 }
 
 } // namespace gem5
